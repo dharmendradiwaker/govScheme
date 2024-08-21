@@ -11,7 +11,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 import requests
-
+from selenium.webdriver.common.action_chains import ActionChains
 
 url = 'https://www.myscheme.gov.in/search'
 
@@ -22,17 +22,21 @@ options = webdriver.ChromeOptions()
 options.add_argument(f'user-agent={user_agent}')
 service = Service(ChromeDriverManager().install())
 options.add_argument('--disable-blink-features=AutomationControlled')
+# options.add_argument("--headless")
 options.add_argument('--disable-gpu')  # Necessary if running on Windows
 driver = webdriver.Chrome(service=service, options=options)
 driver.get(url)
+driver.delete_all_cookies()
 
 
-
-# state_name= WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, '//input[@id="react-select-36-input"]')))
-# state_name.click()
-# state_name.send_keys("uttar pradesh")
-# state_name.send_keys(Keys.RETURN)
-
+state_name= WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, '/html/body/div[1]/div/main/div[4]/div[1]/div/div/div[2]/div/div/div[2]/div')))
+state_name.click()
+state_option = WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.XPATH, "//div[contains(text(), 'Uttar Pradesh')]"))
+    )
+state_option.click()
+driver.execute_script("arguments[0].dispatchEvent(new KeyboardEvent('keydown', {'key':'Enter'}));", state_name)
+time.sleep(1)
 
 search_field = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, '/html/body/div[1]/div/main/div[4]/div[2]/form/input')))
 search_field.send_keys("Farmer")
@@ -74,7 +78,8 @@ def parse_webpage(url):
         'title': title,
         'state': state,
         'tags': tags,
-        'head': {}
+        'head': {},
+        'FAQs':{}
     }
 
     # Extract content sections
@@ -96,6 +101,18 @@ def parse_webpage(url):
         except Exception as e:
             print(f"Error: {e}")
             continue
+    faq_sections = soup.find_all('div', class_='py-4 first:pt-0 last:pb-0 undefined')  # Adjust this class to your specific requirement
+
+    for section in faq_sections:
+        try:
+            question = section.find('p', class_='font-bold dark:text-white w-11/12').text.strip()
+            answer = section.find('p', class_='text-base leading-relaxed').text.strip()
+            
+            result_dict['FAQs'][question] = answer
+
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     return result_dict
 
@@ -129,7 +146,7 @@ def navigate_and_extract_links(driver):
                     if link_element and 'href' in link_element.attrs:
                         link = link_element['href']
                         full_link = 'https://www.myscheme.gov.in'+ link
-                        print(full_link)
+                        
                         data  = parse_webpage(full_link)
 
                         # print(data)
@@ -180,108 +197,26 @@ def navigate_and_extract_links(driver):
             print(f"Error navigating to the next page: {e}")
             break
 
-    print(f"Data collected from all pages: {all_data}")
+    # print(f"Data collected from all pages: {all_data}")
     return all_data
 
 
-# navigate_and_extract_links(driver)
-# time.sleep(5)
+import json
+import os
+scraped_data = navigate_and_extract_links(driver)
+json_data = json.dumps(scraped_data, indent=4)
 
+# Define the filename for the JSON file
+filename = 'scraped_data.json'
 
+# Get the current directory where the code is running
+current_directory = os.getcwd()
 
-## Trying to create a function for filter 
-from selenium.webdriver.support.ui import Select
+# Define the full path to the JSON file
+file_path = os.path.join(current_directory, filename)
 
-# def extract_data_for_state(driver):
-#     state_name = input(str("Enter state Name: "))
-#     try:
-#         # Locate the filter dropdown container
-#         filter_container = WebDriverWait(driver, 10).until(
-#             EC.presence_of_element_located((By.XPATH, '//div[@class="facet__indicator facet__dropdown-indicator css-tlfecz-indicatorContainer"]'))  # Update with the correct XPath
-#         )
-        
-#         # Click to open the dropdown
-#         filter_container.click()
+# Write the JSON data to a file
+with open(file_path, 'w') as json_file:
+    json_file.write(json_data)
 
-        
-#         # Wait for the page to update based on the selected state
-#         time.sleep(3)  # Adjust sleep time if necessary
-
-#     except Exception as e:
-#         print(f"An error occurred while selecting the state: {e}")
-
-
-
-# print(extract_data_for_state(driver))
-
-
-
-
-
-
-
-
-# Print the consolidated dictionary
-
-# faq_sections = driver.find_elements(By.XPATH, '//div[@class="py-4 first:pt-0 last:pb-0 undefined"]')
-
-# for section in faq_sections:
-#     try:
-#         # Find the question and print it
-#         question = section.find_element(By.XPATH, './/div[@class="cursor-pointer undefined"]')
-#         print("Question:", question.text)
-#         # Wait for the answer container to change from 'hidden' to 'blocked'
-#         WebDriverWait(section, 10).until(
-#             EC.presence_of_element_located((By.XPATH, './/div[contains(@class, "rounded-b  dark:text-gray-300 mt-3 block  ")]'))
-#         )
-        
-#         # Wait for the answer to become visible
-#         answer_container = WebDriverWait(section, 10).until(
-#             EC.visibility_of_element_located((By.XPATH, './/div[contains(@class, "rounded-b  dark:text-gray-300 mt-3 block  ")]'))
-#         )
-        
-#         # Find the answer
-#         answer = answer_container.find_element(By.XPATH, './/p[@class="text-base leading-relaxed"]')
-#         print("Answer:", answer.text)
-#         print("-" * 50)  # Separator for better readability
-        
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
-
-# url = 'https://www.myscheme.gov.in/schemes/pmsby'
-# response = requests.get(url)
-# html_content = response.text
-# soup = BeautifulSoup(html_content, 'html.parser')
-    
-# # Find all FAQ sections
-# faq_sections = soup.find_all('div', class_='py-4 first:pt-0 last:pb-0 undefined')
-
-# for section in faq_sections:
-#     try:
-#         # Find the question
-#         question_div = section.find('div', class_='cursor-pointer undefined')
-#         if question_div:
-#             question = question_div.get_text(strip=True)
-#             print("Question:", question)
-#         else:
-#             print("Question not found")
-        
-#         # Find the answer container
-#         answer_container = section.find('div', class_='rounded-b  dark:text-gray-300 mt-3 hidden ')
-#         if answer_container:
-#             # Find the answer
-#             answer_p = answer_container.find('p', class_='text-base leading-relaxed')
-#             if answer_p:
-#                 answer = answer_p.get_text(strip=True)
-#                 print("Answer:", answer)
-#             else:
-#                 print("Answer not found")
-#         else:
-#             print("Answer container not found")
-            
-#         print("-" * 50)  # Separator for better readability
-    
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
-
-# time.sleep(5)
+print(f"Data has been saved to {file_path}")
