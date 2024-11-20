@@ -33,7 +33,7 @@ pip install selenium requests beautifulsoup4 pandas webdriver-manager
 Clone this repository to your local machine:
 
 ```bash
-git clone https://github.com/yourusername/my-scheme-web-scraper.git
+git clone https://github.com/dharmendradiwaker/govScheme.git
 cd my-scheme-web-scraper
 ```
 
